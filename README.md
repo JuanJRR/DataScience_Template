@@ -1,61 +1,65 @@
-# Data Science Template 🚀
+# Data Science Template
 
 ## Resumen del Proyecto
 
-Este proyecto es una plantilla de arquitectura de proyectos de ciencia de datos optimizada para la reproducibilidad y la colaboración. El objetivo principal es proporcionar una estructura de archivos estándar, un entorno de desarrollo reproducible con **Dev Containers** y una gestión de dependencias moderna con `pyproject.toml`.
+Este proyecto es una plantilla de arquitectura de ciencia de datos de alto rendimiento, optimizada para la reproducibilidad, la aceleración por hardware y la colaboración eficiente. Proporciona un entorno preconfigurado con `NVIDIA CUDA 12.8` y una gestión de dependencias moderna mediante `pyproject.toml`
 
 ## Características Clave
 
-  * **Entorno Reproducible**: Utiliza Docker y Dev Containers para asegurar que el entorno de desarrollo sea idéntico para todos los colaboradores.
-  * **Gestión de Dependencias Moderna**: Las dependencias se gestionan con `pyproject.toml`, separando las librerías de producción de las de desarrollo.
-  * **Versionado de Datos**: Integración con **DVC (Data Version Control)** para la gestión y versionado de grandes archivos de datos y modelos.
-  * **Organización de Código**: Una estructura de directorios clara que separa el código fuente, los notebooks y los datos.
-  * **Automatización de CI/CD**: Flujos de trabajo de GitHub Actions para pruebas automatizadas y gestión de dependencias con Dependabot.
+* **Entorno de Alto Rendimiento:** Basado en `Ubuntu 24.04` con soporte nativo para GPUs NVIDIA y capacidades de cómputo, utilidad y video.
+* **Gestión de Dependencias Moderna:** Control centralizado de librerías de producción y desarrollo (como ruff, pytest y dvc) en un solo manifiesto.
+* **Optimización para Deep Learning:** Configuración de memoria compartida (shm_size: 4gb) y límites de memoria relajados (12GB) para entrenamientos pesados.
+* **Calidad de Código Automatizada:** Integración de Ruff para linting rápido compatible con NumPy 2.x.
+* **Experiencia "One-Click":** Configuración de Dev Containers que instala automáticamente extensiones críticas de VS Code (Python, Jupyter, Pylance, DVC, Tensorboard).
 
 -----
 
 ## Estructura del Proyecto
 
-El repositorio sigue una estructura de directorios estándar para proyectos de ciencia de datos.
+El repositorio sigue una organización profesional para separar la infraestructura del código científico:
 
 ```
 /DATASCIENCE_TEMPLATE
-├── .devcontainer/         # Configuración del entorno de desarrollo (devcontainer)
-├── .github/               # Workflows de GitHub Actions
-├── data/                  # Almacena los datos del proyecto
-├── notebooks/             # Cuadernos de Jupyter para la exploración y prototipado
-├── src/                   # Código fuente de producción del proyecto
-├── tests/                 # Pruebas unitarias para el código
-├── .gitignore             # Archivos y directorios a ignorar por Git
-├── docker-compose.yml     # Orquestación de servicios Docker
-├── pyproject.toml         # Configuración de dependencias y herramientas
-├── README.md              # Este archivo
-└── dvc.yaml               # Archivo de configuración de DVC
+├── .devcontainer/       # Configuración de VS Code (extensiones y runtime) 
+├── data/                # Almacenamiento de datasets (gestionado por DVC)
+├── notebooks/           # Experimentación y prototipado en Jupyter
+├── src/                 # Código fuente (añadido automáticamente al PYTHONPATH) 
+├── tests/               # Pruebas unitarias con Pytest
+├── docker-compose.yml   # Orquestación de servicios, GPU y volúmenes 
+├── Dockerfile           # Receta de la imagen base (CUDA + Dependencias) 
+├── pyproject.toml       # Dependencias (Pandas, PyTorch, Scikit-Learn, etc.) 
+└── .env                 # Variables de entorno (Cargadas automáticamente)
 ```
-
 -----
 
 ## Primeros Pasos 👣
 
 ### Requisitos
 
-  * Docker
-  * Visual Studio Code
-  * La extensión [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) para VS Code.
+  * Docker y Docker Compose.
+  * NVIDIA Container Toolkit (para soporte de GPU).
+  * VS Code con la extensión [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
 
 ### Instrucciones
 
-1.  **Clona el repositorio**: `git clone https://github.com/tu_usuario/tu_proyecto.git`
-2.  **Abre el proyecto en VS Code**: En la barra lateral, haz clic en **"Reopen in Container"** o utiliza la paleta de comandos (`Ctrl+Shift+P`) y busca "Dev Containers: Reopen in Container".
-3.  **Listo para trabajar**: VS Code construirá el contenedor, instalará las dependencias y abrirá el entorno de desarrollo. Tu terminal estará lista y configurada dentro del contenedor.
+1.  **Clona el repositorio:** `git clone https://github.com/JuanJRR/DataScience_Template.git`
+2.  **Configura el entorno:** Crea un archivo `.env` basado en tus necesidades (el contenedor lo cargará automáticamente).
+3. Abre en VS Code: Haz clic en `Reopen in Container` cuando aparezca la notificación.
+4. Listo para trabajar: El sistema instalará automáticamente las dependencias del sistema y de Python en el contenedor.
 
-### Uso
+### Uso Común
 
-  * **Iniciar Jupyter Lab**: `jupyter lab --ip=0.0.0.0 --allow-root --port=8888 --no-browser`
-  * **Ejecutar pruebas**: `pytest`
+  * **Jupyter Lab/Notebooks:** Accede vía puerto 8888 (mapeado en el host).
+  * **Tensorboard:** Visualiza tus entrenamientos en el puerto 6006.
+  * **Ejecutar Pruebas:** Simplemente corre pytest en la terminal integrada.
+  * **Linting:** Ruff se ejecutará automáticamente según las reglas definidas (target Python 3.12).
 
 -----
+### Licencia
 
+Este proyecto está bajo la Licencia GNU GENERAL PUBLIC Version 2 (indicada en el archivo LICENSE).
+
+----
 ## Contribuciones 🤝
 
 Agradecemos las contribuciones. Por favor, sigue los siguientes pasos:
@@ -65,9 +69,3 @@ Agradecemos las contribuciones. Por favor, sigue los siguientes pasos:
 3.  Realiza tus cambios y haz `commit` (`git commit -m 'feat: agrega nueva caracteristica'`).
 4.  Empuja la rama (`git push origin feature/nueva-caracteristica`).
 5.  Abre un Pull Request.
-
------
-
-## Licencia 📄
-
-Este proyecto está bajo la Licencia GNU GENERAL PUBLIC Version 2. Consulta el archivo `LICENSE` para más detalles.

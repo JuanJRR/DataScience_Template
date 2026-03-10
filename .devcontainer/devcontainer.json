@@ -1,5 +1,5 @@
 {
-    "name": "Data Science Project",
+    "name": "Data Science Template",
     "dockerComposeFile": [
         "../docker-compose.yml"
     ],
@@ -17,27 +17,19 @@
                 "ms-python.vscode-pylance", // Servidor de lenguaje de Python
                 "ms-toolsai.jupyter", // Soporte para Jupyter Notebooks
                 "ms-toolsai.datawrangler",
-                "iterative.dvc", // Para versionar datos
-                "iterative.vscode-dvc-pack", // Paquete DVC
                 "njpwerner.autodocstring",
                 "redhat.vscode-yaml",
                 "charliermarsh.ruff", // Linter y formateador de Python
-                "ms-toolsai.tensorboard"
+                "ms-toolsai.tensorboard",
+                "ms-azuretools.vscode-docker"
             ],
             "settings": {
-                "python.defaultInterpreterPath": "/usr/local/bin/python"
-                // "python.analysis.autoImportModules": [
-                //     "sklearn",
-                //     "numpy",
-                //     "pandas"
-                // ]
+                "python.defaultInterpreterPath": "/usr/bin/python3",
+                "python.analysis.extraPaths": ["/app/src"]
             }
         }
     },
-    
-    "shutdownAction": "none",
-    "forwardPorts": [8888],
-    "mounts": [
-        "source=${localWorkspaceFolder},target=/app,type=bind,consistency=delegated"
-    ]
+    // En desarrollo es más sencillo para acceder a /dev/bus/usb
+    "remoteUser": "root", 
+    "runArgs": ["--gpus", "all"]
 }
