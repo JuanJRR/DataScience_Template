@@ -1,35 +1,134 @@
 {
-    "name": "Data Science Template",
+    "name": "DL Workspace",
     "dockerComposeFile": [
         "../docker-compose.yml"
     ],
     "service": "development",
-
     "workspaceFolder": "/app",
 
+    // ── Usuario de desarrollo ─────────────────────────────────────────────────
+    "remoteUser": "researcher",
+    // Para acceso USB: "remoteUser": "root"
+
+    // ── Argumentos de Docker run ──────────────────────────────────────────────
+    "runArgs": [
+        "--gpus", "all",
+        // Límite de archivos abiertos: crítico para DataLoader con muchos workers
+        "--ulimit", "nofile=1048576:1048576",
+        // Memoria locked sin límite (pinned memory para transferencias GPU)
+        "--ulimit", "memlock=-1:-1",
+        // Stack size generoso para threads de workers
+        "--ulimit", "stack=67108864:67108864",
+        // Nombre del contenedor para identificación fácil
+        "--name", "dl-dev-vscode"
+    ],
+
+    // ── Customizaciones de VSCode ─────────────────────────────────────────────
     "customizations": {
         "vscode": {
             "extensions": [
+                // ── Python ──────────────────────────────────────────────────
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-python.mypy-type-checker",
+                "charliermarsh.ruff",          // Linter y formateador (Ruff)
+
+                // ── Jupyter / Data ───────────────────────────────────────────
+                "ms-toolsai.jupyter",
+                "ms-toolsai.datawrangler",
+                "ms-toolsai.tensorboard",
+
+                // ── Documentación ────────────────────────────────────────────
+                "njpwerner.autodocstring",
+
+                // ── Git / DVC ────────────────────────────────────────────────
+                "eamodio.gitlens",
+                "iterative.dvc",               // DVC integrado en VSCode
+
+                // ── YAML / TOML (Hydra configs) ──────────────────────────────
+                "redhat.vscode-yaml",
+                "tamasfe.even-better-toml",
+
+                // ── Spell check ──────────────────────────────────────────────
                 "streetsidesoftware.code-spell-checker",
                 "streetsidesoftware.code-spell-checker-spanish",
-                "eamodio.gitlens",
-                "ms-python.python", // Paquete principal de Python en VS Code
-                "ms-python.vscode-pylance", // Servidor de lenguaje de Python
-                "ms-toolsai.jupyter", // Soporte para Jupyter Notebooks
-                "ms-toolsai.datawrangler",
-                "njpwerner.autodocstring",
-                "redhat.vscode-yaml",
-                "charliermarsh.ruff", // Linter y formateador de Python
-                "ms-toolsai.tensorboard",
-                "ms-azuretools.vscode-docker"
+
+                // ── Docker ───────────────────────────────────────────────────
+                "ms-azuretools.vscode-docker",
+
+                // ── Profiling y rendimiento ──────────────────────────────────
+                // "nvidia.nsight-vscode-edition" // Requiere licencia Nsight
             ],
+
             "settings": {
-                "python.defaultInterpreterPath": "/usr/bin/python3",
-                "python.analysis.extraPaths": ["/app/src"]
+                // ── Python ──────────────────────────────────────────────────
+                // Apuntar al venv instalado en el contenedor
+                "python.defaultInterpreterPath": "/opt/venv/bin/python",
+                "python.analysis.extraPaths": ["/app/src"],
+                "python.analysis.typeCheckingMode": "basic",
+
+                // ── Ruff como formateador principal ──────────────────────────
+                "[python]": {
+                    "editor.defaultFormatter": "charliermarsh.ruff",
+                    "editor.formatOnSave": true,
+                    "editor.codeActionsOnSave": {
+                        "source.organizeImports": "explicit"
+                    }
+                },
+
+                // ── Testing ──────────────────────────────────────────────────
+                "python.testing.pytestEnabled": true,
+                "python.testing.pytestArgs": ["tests"],
+
+                // ── Jupyter ──────────────────────────────────────────────────
+                "jupyter.defaultKernelName": "python3",
+                "jupyter.notebookFileRoot": "/app",
+                // Guardar outputs en notebooks (útil para reproducibilidad)
+                "notebook.output.scrolling": true,
+
+                // ── TensorBoard ──────────────────────────────────────────────
+                "python.tensorBoard.logDirectory": "/app/logs",
+
+                // ── Terminal ─────────────────────────────────────────────────
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "terminal.integrated.env.linux": {
+                    "PYTHONPATH": "/app/src"
+                },
+
+                // ── Editor ───────────────────────────────────────────────────
+                "editor.rulers": [88],
+                "files.exclude": {
+                    "**/__pycache__": true,
+                    "**/*.pyc": true,
+                    "**/.pytest_cache": true,
+                    "**/.ruff_cache": true
+                }
             }
         }
     },
-    // En desarrollo es más sencillo para acceder a /dev/bus/usb
-    "remoteUser": "root", 
-    "runArgs": ["--gpus", "all"]
+
+    // ── Post-creación del contenedor ──────────────────────────────────────────
+    // Se ejecuta UNA VEZ al crear el devcontainer
+    "postCreateCommand": "bash scripts/post_create.sh",
+
+    // ── Forward de puertos ────────────────────────────────────────────────────
+    "forwardPorts": [
+        8888,   // JupyterLab
+        6006   // TensorBoard
+        // 5000    // MLflow UI
+    ],
+    "portsAttributes": {
+        "8888": {
+            "label": "JupyterLab",
+            "onAutoForward": "notify"
+        },
+        "6006": {
+            "label": "TensorBoard",
+            "onAutoForward": "silent"
+        }
+        // "5000": {
+        //     "label": "MLflow",
+        //     "onAutoForward": "silent"
+        // }
+    }
 }
