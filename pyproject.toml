@@ -18,7 +18,8 @@ dependencies = [
     "matplotlib>=3.10.0",
     "opencv-python-headless>=4.13.0",
     "torch",
-    "torchvision"
+    "torchvision",
+    "minerva-ml"
 ]
 
 [project.optional-dependencies]
