@@ -1,27 +1,229 @@
+# Fragmento reutilizable para la configuración GPU (YAML anchors)
+x-gpu-config: &gpu-config
+  driver: nvidia
+  count: all
+  capabilities: [gpu, compute, utility, video]
+
+# Fragmento reutilizable para variables de entorno de rendimiento CUDA
+x-cuda-env: &cuda-env
+  PYTORCH_CUDA_ALLOC_CONF: "expandable_segments:True,max_split_size_mb:512"
+  CUDA_DEVICE_ORDER: PCI_BUS_ID
+  NCCL_DEBUG: WARN
+  TF_CPP_MIN_LOG_LEVEL: "3"
+  OMP_NUM_THREADS: "16"
+  MKL_NUM_THREADS: "16"
+
 services:
+
+  # ── Servicio de desarrollo (VSCode devcontainer / trabajo interactivo) ──────
   development:
     build:
       context: .
       dockerfile: Dockerfile
+      # Selecciona la etapa "development" del multi-stage build
+      target: development
+      args:
+        PYTHON_VERSION: "3.12"
+        USERNAME: researcher
+        USER_UID: "1000"
+        USER_GID: "1000"
+    image: dl-workspace:dev
+    container_name: dl-dev
+    profiles: [dev, default]
+
     volumes:
-      - .:/app
-      - /dev/bus/usb:/dev/bus/usb
-    # Aumentamos la memoria compartida para Deep Learning
-    shm_size: '4gb' 
+      # Código fuente: montado como bind mount para hot-reload en desarrollo
+      - ./src:/app/src
+      - ./notebooks:/app/notebooks
+      - ./tests:/app/tests
+      - ./configs:/app/configs
+
+      # SEPARACIÓN CRÍTICA: datos fuera del contenedor en volúmenes dedicados
+      # Esto elimina el cuello de botella de I/O al entrenar
+      - dl-data:/app/data
+      - dl-checkpoints:/app/checkpoints
+      - dl-logs:/app/logs
+      - dl-mlruns:/app/mlruns
+
+      # Cache de Hugging Face y otros modelos pre-entrenados
+      # Persiste entre sesiones para no re-descargar modelos grandes
+      - dl-hf-cache:/root/.cache/huggingface
+      - dl-torch-cache:/root/.cache/torch
+
+      # USB para dispositivos hardware (ISAC)
+      # - /dev/bus/usb:/dev/bus/usb
+
+    # CRÍTICO: incrementar significativamente la memoria compartida.
+    # Con DataLoader(num_workers=16), cada worker hace IPC vía /dev/shm.
+    # Regla: shm_size >= num_workers × batch_size × tensor_size_aprox
+    # Para RTX 4090 + i9: 16 GB es seguro con 64 GB RAM del host.
+    shm_size: "16gb"
+
+    # Eliminar límite de memoria: el host tiene 64 GB, no restringir el contenedor.
+    # El límite de 12 GB era el cuello de botella principal.
+    # El OS del host gestiona el swap si es necesario.
+    # Si necesitas límites, usa al menos 48g:
+    # mem_limit: "48g"
+
+    # Configuración de ulimits para máximo rendimiento I/O
+    ulimits:
+      # Sin límite de archivos abiertos (crítico para DataLoader con muchos workers)
+      nofile:
+        soft: 1048576
+        hard: 1048576
+      # Sin límite de memoria locked (permite pinned memory para GPU transfers)
+      memlock:
+        soft: -1
+        hard: -1
+      # Stack size para threads de workers
+      stack:
+        soft: 67108864
+        hard: 67108864
+
     ports:
-      - "8888:8888"
-      - "6006:6006" # Tensorboard
+      - "8888:8888"   # JupyterLab
+      - "6006:6006"   # TensorBoard
+      # - "5000:5000"   # MLflow UI
+
     stdin_open: true
     tty: true
+
     env_file:
       - .env
+
+    environment:
+      <<: *cuda-env
+      # Nivel de logging de Python
+      PYTHONPATH: /app/src
+      # MLflow: guardar experimentos en volumen persistente
+      MLFLOW_TRACKING_URI: "file:///app/mlruns"
+
     deploy:
       resources:
         reservations:
           devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu, compute, utility, video]
-        # Recomendación: Relajar los límites para DL
+            - *gpu-config
+        # SIN límite de memoria — clave para no bloquear entrenamiento
+        # limits: # comentado intencionalmente
+
+    # Política de reinicio: no reiniciar en desarrollo (para depuración)
+    restart: "no"
+
+    # Healthcheck: verifica que la GPU es accesible
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import torch; assert torch.cuda.is_available()"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
+
+  # ── JupyterLab standalone (sin VSCode) ───────────────────────────────────────
+  jupyter:
+    extends:
+      service: development
+    profiles: [jupyter]
+    container_name: dl-jupyter
+    command: >
+      jupyter lab
+        --ip=0.0.0.0
+        --port=8888
+        --no-browser
+        --NotebookApp.token=''
+        --NotebookApp.password=''
+        --notebook-dir=/app
+    restart: unless-stopped
+
+  # ── TensorBoard standalone ────────────────────────────────────────────────────
+  tensorboard:
+    extends:
+      service: development
+    profiles: [dev, jupyter]
+    container_name: dl-tensorboard
+    command: tensorboard --logdir=/app/logs --host=0.0.0.0 --port=6006
+    ports:
+      - "6006:6006"
+    restart: unless-stopped
+
+  # ── Servicio de producción / inferencia ───────────────────────────────────────
+  production:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+      args:
+        PYTHON_VERSION: "3.12"
+    image: dl-workspace:prod
+    container_name: dl-prod
+    profiles: [prod]
+
+    volumes:
+      # Solo datos necesarios para inferencia
+      - dl-checkpoints:/app/checkpoints:ro  # read-only: no modificar en prod
+      - ./src:/app/src:ro
+
+    shm_size: "4gb"
+
+    environment:
+      <<: *cuda-env
+      OMP_NUM_THREADS: "8"
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - *gpu-config
         limits:
-          memory: 12G
+          memory: "24g"  # En prod sí ponemos límite explícito
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import torch; assert torch.cuda.is_available()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+# =============================================================================
+# Volúmenes nombrados: persisten entre reinicios del contenedor.
+# Los datos NO se pierden al hacer docker compose down (solo con -v).
+# Para vincular a rutas del host específicas, usar:
+#   driver_opts:
+#     type: none
+#     device: /ruta/absoluta/en/host
+#     o: bind
+# =============================================================================
+volumes:
+  dl-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${PWD}/data
+      o: bind
+
+  dl-checkpoints:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${PWD}/checkpoints
+      o: bind
+
+  dl-logs:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${PWD}/logs
+      o: bind
+
+  dl-mlruns:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${PWD}/mlruns
+      o: bind
+
+  # Caches de modelos: ubicar en SSD rápido del host
+  dl-hf-cache:
+  dl-torch-cache:
