@@ -1,40 +1,140 @@
 [project]
 name = "data-science-template"
 version = "1.0.0"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"   # Rango cerrado para reproducibilidad
 readme = "README.md"
 authors = [
   {name = "Juan Jose Rodriguez", email = "rodriguezjuan001@outlook.com"}
 ]
 license = {file = "LICENSE"}
-keywords = ["data-science", "machine-learning"]
+keywords = ["data-science", "machine-learning", "deep-learning"]
+
 dependencies = [
-    "python-dotenv>=1.2.0",
-    "tqdm>=4.67.0",
-    "numpy>=2.0.2", 
-    "pandas>=2.2.2",
-    "scipy>=1.16.3",
-    "scikit-learn>=1.6.1",
-    "matplotlib>=3.10.0",
-    "opencv-python-headless>=4.13.0",
+    # ── Utilidades ──────────────────────────────────────────────────────────
+    "python-dotenv>=1.2.0,<2.0",
+    "tqdm>=4.67.0,<5.0",
+
+    # ── Computación científica ───────────────────────────────────────────────
+    # NumPy 2.x: nueva ABI, verificar compatibilidad con extensiones C
+    "numpy>=2.0.2,<3.0",
+    "pandas>=2.2.2,<3.0",
+    "scipy>=1.16.3,<2.0",
+    "scikit-learn>=1.6.1,<2.0",
+    "h5py>=3.12.0,<4.0",           # Datasets grandes (medical imaging, audio)
+
+    # ── Visualización ────────────────────────────────────────────────────────
+    "matplotlib>=3.10.0,<4.0",
+    "seaborn>=0.13.0,<1.0",
+
+    # ── Procesamiento de señales / imagen / audio ────────────────────────────
+    "opencv-python-headless>=4.13.0",  # Headless: sin GUI en contenedor
+    "Pillow>=11.0.0,<12.0",
+    # "librosa>=0.11.0,<1.0",            # Audio: espectrogramas, MFCC
+    # "soundfile>=0.13.0",               # I/O de audio (WAV, FLAC, OGG)
+
+    # ── PyTorch: versión fija, CUDA wheel (ver [tool.uv.sources]) ────────────
+    # IMPORTANTE: la versión aquí debe coincidir con la del Dockerfile ARG
     "torch",
     "torchvision",
-    "minerva-ml"
+    "torchaudio",
+    "lightning>=2.5.0,<3.0",           # PyTorch Lightning para entrenamiento
+
+    # ── Proyecto base ────────────────────────────────────────────────────────
+    "minerva-ml>=0.1.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "ruff>=0.15.5",
-    "pytest>=9.0.2",
-    "dvc>=3.66.1",
-    "ipykernel>=7.2.0", 
+    # ── Calidad de código ────────────────────────────────────────────────────
+    "ruff>=0.15.5,<1.0",
+    "mypy>=1.15.0",                    # Type checking estático
+
+    # ── Testing ──────────────────────────────────────────────────────────────
+    "pytest>=9.0.2,<10.0",
+    "pytest-cov>=6.0.0",               # Cobertura de tests
+    "pytest-timeout>=2.3.0",
+
+    # ── MLOps ────────────────────────────────────────────────────────────────
+    "dvc>=3.66.1,<4.0",               # Versionado de datos y pipelines
+    # "mlflow>=2.20.0,<3.0",            # Tracking de experimentos
+
+    # ── Desarrollo interactivo ───────────────────────────────────────────────
+    "ipykernel>=7.2.0",
+    "ipywidgets>=8.1.0",
+    "jupyterlab>=4.3.0",
+
+    # ── Profiling y debugging ────────────────────────────────────────────────
+    "py-spy>=0.4.0",                   # Profiling de CPU sin instrumentación
+    "memory-profiler>=0.61.0",
 ]
 
+# Dependencias opcionales para MLOps avanzado
+# mlops = [
+#    "optuna>=4.3.0",                   # Optimización de hiperparámetros
+#    "hydra-core>=1.3.0",               # Gestión de configuraciones
+#    "wandb>=0.19.0",                   # Weights & Biases tracking
+#]
+
+# =============================================================================
+# uv: gestor de paquetes recomendado
+# Ventajas sobre pip: resolución de deps 10-100× más rápida,
+# lockfile reproducible (uv.lock), soporte nativo de fuentes alternativas
+# =============================================================================
+[tool.uv]
+# Cache de paquetes (persiste entre builds, reduce tiempo de reconstrucción)
+cache-dir = "/opt/uv-cache"
+
+[tool.uv.sources]
+# Instalar PyTorch desde el índice oficial con soporte CUDA 12.4
+# (compatible con CUDA 12.8 por compatibilidad hacia atrás)
+#torch = [
+#    { index = "pytorch-cu124", marker = "sys_platform == 'linux'" },
+#]
+#torchvision = [
+#    { index = "pytorch-cu124", marker = "sys_platform == 'linux'" },
+#]
+#torchaudio = [
+#    { index = "pytorch-cu124", marker = "sys_platform == 'linux'" },
+#]
+#
+#[[tool.uv.index]]
+#name = "pytorch-cu124"
+#url = "https://download.pytorch.org/whl/cu124"
+#explicit = true  # Solo para los paquetes listados en [tool.uv.sources]
+
+# =============================================================================
+# Configuración de herramientas
+# =============================================================================
 [tool.ruff]
 target-version = "py312"
 line-length = 88
-lint.select = ["E", "F", "I", "B", "UP", "NPY"] # Incluye reglas para NumPy 2.x
-lint.ignore = ["E501"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "NPY", # NumPy 2.x específico
+    "PERF",# performance antipatterns
+]
+ignore = ["E501"]  # Líneas largas (line-length ya lo controla)
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true  # torch stubs no siempre disponibles
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--tb=short --timeout=120"
+filterwarnings = ["ignore::DeprecationWarning"]
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["src*"]
